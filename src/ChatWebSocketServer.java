@@ -19,11 +19,9 @@ public class ChatWebSocketServer extends WebSocketServer {
         this.state = state;
     }
 
-    @Override
-    public void onOpen(WebSocket conn, ClientHandshake handshake) {}
+    @Override public void onOpen(WebSocket conn, ClientHandshake handshake) {}
 
-    @Override
-    public void onClose(WebSocket conn, int code, String reason, boolean remote) {
+    @Override public void onClose(WebSocket conn, int code, String reason, boolean remote) {
         String username = state.getActiveUsers().remove(conn);
         if (username != null) {
             for (Set<String> channel : state.getVoiceChannels().values()) {
@@ -34,8 +32,7 @@ public class ChatWebSocketServer extends WebSocketServer {
         state.broadcastVoiceList();
     }
 
-    @Override
-    public void onMessage(WebSocket conn, String message) {
+    @Override public void onMessage(WebSocket conn, String message) {
         try {
             JsonObject json = JsonParser.parseString(message).getAsJsonObject();
             String type = json.get("type").getAsString();
@@ -44,6 +41,7 @@ public class ChatWebSocketServer extends WebSocketServer {
                 state.getActiveUsers().put(conn, json.get("username").getAsString());
                 state.broadcastUserList();
                 state.broadcastVoiceList();
+                
             } else if ("chat".equals(type)) {
                 String sender = state.getActiveUsers().getOrDefault(conn, "Unknown");
                 JsonObject out = new JsonObject();
@@ -51,6 +49,7 @@ public class ChatWebSocketServer extends WebSocketServer {
                 out.addProperty("username", sender);
                 out.addProperty("message", json.get("message").getAsString());
                 state.broadcast(out.toString());
+                
             } else if ("join-voice".equals(type)) {
                 String channelName = json.get("channel").getAsString();
                 String username = state.getActiveUsers().get(conn);
@@ -65,8 +64,11 @@ public class ChatWebSocketServer extends WebSocketServer {
                 JsonObject notify = new JsonObject();
                 notify.addProperty("type", "user-joined-voice");
                 notify.addProperty("username", username);
+                
                 for (Map.Entry<WebSocket, String> entry : state.getActiveUsers().entrySet()) {
+                	
                     if (channel.contains(entry.getValue())) {
+                    	
                         entry.getKey().send(notify.toString());
                     }
                 }
@@ -80,7 +82,9 @@ public class ChatWebSocketServer extends WebSocketServer {
                 json.addProperty("sender", sender); 
                 
                 for (Map.Entry<WebSocket, String> entry : state.getActiveUsers().entrySet()) {
+                	
                     if (entry.getValue().equals(target)) {
+                    	
                         entry.getKey().send(json.toString());
                         break;
                     }
@@ -89,9 +93,7 @@ public class ChatWebSocketServer extends WebSocketServer {
         } catch (Exception e) {}
     }
 
-    @Override
-    public void onError(WebSocket conn, Exception ex) {}
+    @Override public void onError(WebSocket conn, Exception ex) {}
 
-    @Override
-    public void onStart() {}
+    @Override public void onStart() {}
 }

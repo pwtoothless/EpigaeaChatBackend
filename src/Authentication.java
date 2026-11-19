@@ -1,12 +1,12 @@
 import com.google.gson.Gson;
 import com.google.gson.stream.JsonReader;
 import java.io.FileReader;
-import java.io.IOException;
+
 
 public class Authentication {
 	public boolean isCorrect(String requestedAccount) {
 	    Gson gson = new Gson();
-	    try (JsonReader reader = new JsonReader(new FileReader("./assets/passwords.json"))) {
+	    try (JsonReader reader = new JsonReader(new FileReader("./assets/users.json"))) {
 	        
 	        // 1. Read the JSON as an Array of users (UserFile[].class), not a single object
 	        UserFile[] allUsers = gson.fromJson(reader, UserFile[].class);

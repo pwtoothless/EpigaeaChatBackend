@@ -14,8 +14,7 @@ public class LoginHttpHandler implements HttpHandler {
         this.auth = auth;
     }
 
-    @Override
-    public void handle(HttpExchange exchange) throws IOException {
+    @Override public void handle(HttpExchange exchange) throws IOException {
         exchange.getResponseHeaders().add("Access-Control-Allow-Origin", "*");
         
         if ("POST".equalsIgnoreCase(exchange.getRequestMethod())) {
