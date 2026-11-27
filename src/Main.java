@@ -26,5 +26,10 @@ public class Main {
 
         System.out.println("HTTP Server started on port " + HTTP_PORT);
         System.out.println("WebSocket Server started on port " + WS_PORT);
+        
+        Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+            httpServer.stop(0); // Stop immediately (0 seconds delay)
+            //executor.shutdownNow(); // Force non-daemon worker threads to close
+        }));
     }
 }
