@@ -1,11 +1,13 @@
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
-import java.nio.charset.StandardCharsets;
 
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
 
+/**
+ * HTTP handler for POST /api/login.
+ */
 public class LoginHttpHandler implements HttpHandler {
 
     private final Authentication auth;
@@ -16,39 +18,40 @@ public class LoginHttpHandler implements HttpHandler {
 
     @Override
     public void handle(HttpExchange exchange) throws IOException {
-        exchange.getResponseHeaders().add("Access-Control-Allow-Origin", "*");
-        
-        if ("POST".equalsIgnoreCase(exchange.getRequestMethod())) {
-            InputStream inputStream = exchange.getRequestBody();
-            String requestBody = new String(inputStream.readAllBytes(), StandardCharsets.UTF_8);
+        HttpHelper.addCorsHeaders(exchange);
 
-            if (requestBody.contains("username") && requestBody.contains("password")) {
-                if (auth.isCorrect(requestBody)) {
-                    String response = "{\"success\": true}";
-                    exchange.sendResponseHeaders(200, response.length());
-                    OutputStream os = exchange.getResponseBody();
-                    os.write(response.getBytes());
-                    os.close();
-                } else {
-                    String response = "{\"success\": false, \"message\": \"Wrong username or password\"}";
-                    exchange.sendResponseHeaders(401, response.length()); 
-                    OutputStream os = exchange.getResponseBody();
-                    os.write(response.getBytes());
-                    os.close(); 
-                }
+        if ("OPTIONS".equalsIgnoreCase(exchange.getRequestMethod())) {
+            exchange.sendResponseHeaders(204, -1);
+            return;
+        }
+        if (!"POST".equalsIgnoreCase(exchange.getRequestMethod())) {
+            exchange.sendResponseHeaders(405, -1);
+            return;
+        }
+
+        try {
+            String body = HttpHelper.readBody(exchange);
+            JsonObject json = JsonParser.parseString(body).getAsJsonObject();
+
+            String username = json.has("username") && !json.get("username").isJsonNull()
+                    ? json.get("username").getAsString() : null;
+            String password = json.has("password") && !json.get("password").isJsonNull()
+                    ? json.get("password").getAsString() : null;
+
+            Authentication.AuthResult result = auth.login(username, password);
+            if (result.success) {
+                JsonObject resp = new JsonObject();
+                resp.addProperty("success", true);
+                resp.addProperty("token", result.token);
+                resp.addProperty("username", result.session.username);
+                resp.addProperty("userId", result.session.userId);
+                resp.addProperty("isGlobalAdmin", result.session.isGlobalAdmin);
+                HttpHelper.sendJson(exchange, 200, resp);
             } else {
-                String response = "{\"success\": false, \"message\": \"Invalid request\"}";
-                exchange.sendResponseHeaders(400, response.length());
-                OutputStream os = exchange.getResponseBody();
-                os.write(response.getBytes());
-                os.close();
+                HttpHelper.sendError(exchange, result.statusCode, result.message);
             }
-        } else if ("OPTIONS".equalsIgnoreCase(exchange.getRequestMethod())) {
-            exchange.getResponseHeaders().add("Access-Control-Allow-Methods", "POST, GET, OPTIONS");
-            exchange.getResponseHeaders().add("Access-Control-Allow-Headers", "Content-Type, Authorization");
-            exchange.sendResponseHeaders(204, -1); 
-        } else {
-            exchange.sendResponseHeaders(405, -1); 
+        } catch (Exception e) {
+            HttpHelper.sendError(exchange, 400, "Invalid JSON request");
         }
     }
 }

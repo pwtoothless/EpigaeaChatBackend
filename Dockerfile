@@ -1,21 +1,29 @@
-# Stage 1: Compile the Java files
-FROM eclipse-temurin:21-jdk AS builder
+# Stage 1: Compile Java sources
+FROM eclipse-temurin:21-jdk-alpine AS builder
 WORKDIR /app
-COPY . .
+COPY src ./src
+COPY lib ./lib
 
-# Compile using any .jar files found in a "lib" folder
-RUN find . -name "*.java" > sources.txt && \
-    javac -cp ".:lib/*" @sources.txt
+RUN mkdir -p out && \
+    find src -name "*.java" > sources.txt && \
+    javac -cp "src:lib/*" -d out @sources.txt
 
-# Stage 2: Run the compiled code
-FROM eclipse-temurin:21-jre
+# Stage 2: Minimal runtime with JRE + Nginx reverse proxy on a single port
+FROM eclipse-temurin:21-jre-alpine
 WORKDIR /app
 
-# Copy the compiled files and the lib folder
-COPY --from=builder /app .
+RUN apk add --no-cache nginx && \
+    mkdir -p /run/nginx /app/data
 
-EXPOSE 8081 8082
+COPY --from=builder /app/out ./out
+COPY --from=builder /app/lib ./lib
+COPY nginx.conf /etc/nginx/nginx.conf
+COPY entrypoint.sh /app/entrypoint.sh
+RUN sed -i 's/\r$//' /app/entrypoint.sh && chmod +x /app/entrypoint.sh
 
-# Run the app, telling Java where to find the libraries
-# NOTE: Replace 'Main' with your actual class name or package.Main
-ENTRYPOINT ["java", "-cp", ".:src/:lib/*", "Main"]
+ENV DB_PATH=/app/data/epigaea.db
+VOLUME ["/app/data"]
+
+EXPOSE 8080
+
+ENTRYPOINT ["/app/entrypoint.sh"]
